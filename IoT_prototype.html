@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>LigtasTanim Pro — Smart Wireless Mesh</title>
+<style>
+:root {
+    --bg-color: #0f1215;
+    --panel-bg: rgba(20, 25, 30, 0.85);
+    --panel-border: rgba(255, 255, 255, 0.15);
+    --text-primary: #ffffff;
+    --text-secondary: #94a3b8;
+    --accent-color: #f59e0b; 
+    --success-color: #10b981; 
+    --warning-color: #facc15;
+    --danger-color: #ef4444; 
+    --cold-color: #3b82f6;
+    --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --font-stack: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body { margin: 0; overflow: hidden; background-color: var(--bg-color); font-family: var(--font-stack); color: var(--text-primary); cursor: default; }
+
+/* --- GLASS PANEL --- */
+.glass-panel {
+    position: absolute; background: var(--panel-bg);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--panel-border); border-radius: 12px;
+    box-shadow: var(--shadow-soft); padding: 20px;
+    pointer-events: auto; user-select: none; transition: all 0.3s ease;
+}
+
+/* --- INFO PANEL --- */
+#info-panel { top: 20px; left: 20px; width: 340px; border-left: 4px solid var(--accent-color); }
+h1 { margin: 0; font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+.badge { display: inline-block; padding: 2px 8px; margin-left: 8px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; background: rgba(245, 158, 11, 0.2); color: var(--accent-color); border-radius: 4px; vertical-align: middle; }
+.subtitle { margin: 4px 0 16px 0; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
+
+/* --- INPUT CONTROLS --- */
+.control-group { margin-bottom: 15px; }
+.control-label { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px; }
+.range-input { width: 100%; cursor: pointer; accent-color: var(--accent-color); }
+
+/* --- LOGIC DISPLAY --- */
+.logic-box { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px; margin-top: 15px; border: 1px solid var(--panel-border); }
+.logic-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.85rem; }
+.logic-row:last-child { margin-bottom: 0; }
+.status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background: #333; color: #888; transition: all 0.3s; }
+
+/* Dynamic Status Classes */
+.status-safe { background: rgba(16, 185, 129, 0.2); color: var(--success-color); box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
+.status-lowrisk { background: rgba(59, 130, 246, 0.2); color: var(--cold-color); }
+.status-warning { background: rgba(250, 204, 21, 0.2); color: var(--warning-color); box-shadow: 0 0 10px rgba(250, 204, 21, 0.2); }
+.status-prevent { background: rgba(249, 115, 22, 0.2); color: #f97316; animation: pulse-orange 1s infinite; }
+.status-critical { background: rgba(239, 68, 68, 0.2); color: var(--danger-color); animation: pulse-red 0.5s infinite; }
+
+@keyframes pulse-orange { 0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); } 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); } }
+@keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+
+/* --- TOOLTIP --- */
+#tooltip {
+    position: absolute; display: none; z-index: 1000; pointer-events: none;
+    background: rgba(15, 20, 25, 0.95); border: 1px solid var(--accent-color);
+    padding: 12px 16px; border-radius: 8px; min-width: 200px; max-width: 250px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    transform: translate(15px, 15px); /* Offset from cursor */
+}
+#tooltip h4 { margin: 0 0 6px 0; font-size: 0.95rem; font-weight: 700; color: var(--accent-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px; }
+#tooltip p { margin: 0; font-size: 0.8rem; color: #ccc; line-height: 1.4; }
+
+/* --- VIEW CONTROLS --- */
+#view-controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; }
+.btn { background: rgba(30, 41, 59, 0.9); border: 1px solid var(--panel-border); color: white; padding: 10px 20px; border-radius: 30px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+.btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+</head>
+<body>
+
+<!-- UI PANEL -->
+<div id="info-panel" class="glass-panel">
+    <h1>LigtasTanim <span class="badge">Wireless</span></h1>
+    <p class="subtitle">Environment Monitor & Response</p>
+    
+    <!-- CONTROLS -->
+    <div class="control-group">
+        <div class="control-label"><span>Temperature</span><span id="val-temp">12°C</span></div>
+        <input type="range" id="input-temp" class="range-input" min="-10" max="20" value="12">
+    </div>
+    
+    <div class="control-group">
+        <div class="control-label"><span>Humidity</span><span id="val-humid">65%</span></div>
+        <input type="range" id="input-humid" class="range-input" min="0" max="100" value="65">
+    </div>
+
+    <!-- LOGIC FEEDBACK -->
+    <div class="logic-box">
+        <div class="logic-row"><span style="color:#aaa">Condition:</span><span id="logic-condition">Normal</span></div>
+        <div class="logic-row"><span style="color:#aaa">Action:</span><span id="logic-action">Monitoring...</span></div>
+        <div class="logic-row" style="margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.1)">
+            <span>System Status</span>
+            <span id="sys-status" class="status-badge status-safe">ACTIVE</span>
+        </div>
+    </div>
+    
+    <div style="margin-top: 15px; font-size: 0.75rem; color: #666; text-align: center;">
+        * Hover over 3D components for details *
+    </div>
+</div>
+
+<!-- TOOLTIP (Hidden by default) -->
+<div id="tooltip">
+    <h4 id="tt-title">Component</h4>
+    <p id="tt-desc">Description goes here.</p>
+</div>
+
+<!-- BOTTOM CONTROLS -->
+<div id="view-controls">
+    <button class="btn" id="btn-night">🌙 Night Mode</button>
+    <button class="btn" id="btn-hub">📡 View Hub</button>
+    <button class="btn" id="btn-field">🌱 View Field</button>
+</div>
+
+<script>
+    // --- STATE VARIABLES ---
+    let temp = 12;
+    let humidity = 65;
+    let isSprinklerActive = false;
+    let isNightMode = false;
+    const activeSprinklers = []; // Stores objects for animation
+    const interactables = []; // Objects for raycasting
+
+    // --- SCENE SETUP ---
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(8, 5, 8); // Start wide
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    document.body.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 - 0.02;
+
+    // --- LIGHTING ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xfffff0, 1.2);
+    dirLight.position.set(10, 15, 5);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    // --- MATERIALS (Realistic) ---
+    const matBody = new THREE.MeshStandardMaterial({ color: 0xf3f4f6, roughness: 0.3 });
+    const matDark = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.7 });
+    const matMetal = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.2, metalness: 0.8 });
+    const matChrome = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.05, metalness: 1.0 });
+    const matAccent = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.4 });
+    const matLeaf = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.8 });
+    const matGround = new THREE.MeshStandardMaterial({ color: 0x3f2e26, roughness: 1.0 });
+    
+    // Status LED Material (Dynamic)
+    const matLedStatus = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x10b981, emissiveIntensity: 2 });
+
+    // Solar Texture Procedural
+    const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0f172a'; ctx.fillRect(0,0,512,512); // Dark Blue Base
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 2;
+    for(let i=0; i<512; i+=42) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(512,i); ctx.stroke(); } // Grid
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 6;
+    for(let i=128; i<512; i+=128) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,512); ctx.stroke(); } // Busbars
+    const texSolar = new THREE.CanvasTexture(canvas);
+    const matSolar = new THREE.MeshStandardMaterial({ map: texSolar, roughness: 0.1, metalness: 0.5 });
+
+    // Water Particle
+    const matWater = new THREE.PointsMaterial({
+        color: 0x00ffff, size: 0.08, transparent: true, opacity: 0.6,
+        blending: THREE.AdditiveBlending, depthWrite: false
+    });
+
+    // --- ENVIRONMENT ---
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), matGround);
+    ground.rotation.x = -Math.PI/2; ground.position.y = -4; ground.receiveShadow = true;
+    scene.add(ground);
+    
+    const grid = new THREE.GridHelper(60, 60, 0x555555, 0x443322);
+    grid.position.y = -3.99; grid.material.opacity = 0.15; grid.material.transparent = true;
+    scene.add(grid);
+
+    // Crops (Instanced)
+    const cropGroup = new THREE.Group();
+    const cropGeo = new THREE.SphereGeometry(0.3, 6, 4);
+    for(let x=-8; x<=8; x+=1.5) {
+        for(let z=-8; z<=8; z+=1.5) {
+            if(Math.abs(x)<1.5 && Math.abs(z)<1.5) continue; // Hub Clearing
+            if(Math.abs(x)>3 && Math.abs(x)<5 && Math.abs(z)>3 && Math.abs(z)<5) continue; // Node Clearing
+            const p = new THREE.Mesh(cropGeo, matLeaf);
+            p.position.set(x+(Math.random()*0.4), -3.8, z+(Math.random()*0.4));
+            p.scale.set(1, 0.6, 1); p.castShadow = true; p.receiveShadow = true;
+            cropGroup.add(p);
+        }
+    }
+    scene.add(cropGroup);
+
+    // --- 1. CENTRAL HUB (No Sprinklers attached) ---
+    const hubGroup = new THREE.Group();
+    scene.add(hubGroup);
+
+    // Pole
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4), matMetal);
+    pole.position.set(0, -2, -0.5); 
+    hubGroup.add(pole);
+
+    // Enclosure (Sloped)
+    // Shape: Left (-0.4) is High (1.3), Right (0.4) is Low (1.0)
+    const shape = new THREE.Shape();
+    shape.moveTo(-0.4, 0); shape.lineTo(0.4, 0); shape.lineTo(0.4, 1.0); shape.lineTo(-0.4, 1.3); shape.lineTo(-0.4, 0);
+    const boxGeo = new THREE.ExtrudeGeometry(shape, { depth: 0.8, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02 });
+    boxGeo.center();
+    const hubBox = new THREE.Mesh(boxGeo, matBody);
+    hubBox.castShadow = true; 
+    hubBox.userData = { tooltip: "Frost Detection Hub", desc: "Main control unit. Processes sensor data from the shield below and coordinates the wireless network. Solar powered for 24/7 operation." };
+    interactables.push(hubBox);
+    hubGroup.add(hubBox);
+
+    // Solar Panel (CORRECTED TILT)
+    // Panel Dimensions: W=0.9, D=1.1, H=0.05
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 1.1), matSolar);
+    // Box Profile: Left (-0.4) is 1.3, Right (0.4) is 1.0. 
+    // Rise = 1.0 - 1.3 = -0.3. Run = 0.8.
+    // Angle = atan(-0.3 / 0.8). Negative Z rotation tilts right side down.
+    panel.rotation.z = Math.atan((1.0 - 1.3) / 0.8); 
+    // Y Position: Center of surface is (1.3+1.0)/2 = 1.15. 
+    // Relative to box center (0.65), offset is 0.5.
+    // Add half thickness (0.025) + tiny gap = 0.53
+    panel.position.set(0, 0.53, 0); 
+    panel.userData = { tooltip: "Solar Array", desc: "High-efficiency monocrystalline panel. Angled to shed rain and maximize sun exposure. Powers the Central Hub." };
+    interactables.push(panel);
+    hubGroup.add(panel);
+
+    // Radiation Shield
+    const shieldGrp = new THREE.Group();
+    shieldGrp.position.set(0, -0.65, 0);
+    // Invisible hit box for easier hovering
+    const shieldCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.5, 16), new THREE.MeshBasicMaterial({ visible: false }));
+    shieldCyl.userData = { tooltip: "Radiation Shield", desc: "Stevenson Screen. Houses the DHT22 Temperature & Humidity sensors. The slats block direct sunlight while allowing air flow for accurate readings." };
+    interactables.push(shieldCyl);
+    shieldGrp.add(shieldCyl);
+
+    for(let i=0; i<5; i++) {
+        const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 0.05, 16), matBody);
+        ring.position.y = -i*0.08; ring.castShadow = true; shieldGrp.add(ring);
+    }
+    hubGroup.add(shieldGrp);
+
+    // Antenna (GSM/RF)
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8), matDark);
+    ant.position.set(0.42, 0.4, 0); 
+    ant.userData = { tooltip: "GSM/RF Antenna", desc: "Dual-purpose antenna. Sends SMS alerts to the farmer via GSM and transmits control signals to the wireless sprinkler nodes via LoRa." };
+    interactables.push(ant);
+    hubGroup.add(ant);
+
+    // Status LED
+    const led = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.05), matLedStatus);
+    led.rotation.z = Math.PI/2; led.position.set(0.41, 0, 0.2); 
+    led.userData = { tooltip: "Status Indicator", desc: "Visual feedback. GREEN: Normal/Safe. YELLOW: Frost Risk/Warning. RED: Critical/Mist Active." };
+    interactables.push(led);
+    hubGroup.add(led);
+
+
+    // --- 2. WIRELESS SPRINKLER NODES ---
+    function createWirelessNode(x, z) {
+        const node = new THREE.Group();
+        node.position.set(x, -4, z);
+
+        // Stake
+        const stake = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.01, 0.8), matMetal);
+        stake.position.y = 0.4; node.add(stake);
+        
+        // Riser Pipe
+        const riser = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0), matDark);
+        riser.position.y = 0.5; node.add(riser);
+
+        // Control Box (Rugged)
+        const ctrl = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 0.12), matBody);
+        ctrl.position.set(0.06, 0.6, 0); 
+        ctrl.userData = { tooltip: "Wireless Valve Node", desc: "Independent satellite unit. Contains a battery, wireless receiver, and solenoid valve to control water flow." };
+        interactables.push(ctrl);
+        node.add(ctrl);
+        
+        // Mini Solar
+        const sol = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 0.02), matSolar);
+        sol.rotation.x = -Math.PI/2; sol.rotation.z = 0.2;
+        sol.position.set(0.06, 0.71, 0); 
+        sol.userData = { tooltip: "Node Power", desc: "Small solar cell to keep the valve node battery charged." };
+        interactables.push(sol);
+        node.add(sol);
+
+        // RF Antenna
+        const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.2), matDark);
+        ant.position.set(0.1, 0.8, 0); node.add(ant);
+
+        // Sprinkler Head
+        const head = new THREE.Group();
+        head.position.y = 1.0;
+        node.add(head);
+
+        // Hit box for head
+        const headHit = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), new THREE.MeshBasicMaterial({ visible: false }));
+        headHit.userData = { tooltip: "Impact Sprinkler", desc: "Brass/Chrome impact sprinkler. Rotates to distribute mist over crops when triggered by the central hub." };
+        interactables.push(headHit);
+        head.add(headHit);
+
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.1), matChrome);
+        head.add(body);
+        const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.1), matMetal);
+        nozzle.rotation.z = -1.3; nozzle.position.set(0.05, 0.04, 0);
+        head.add(nozzle);
+
+        scene.add(node);
+
+        // Particles
+        const count = 300;
+        const pos = new Float32Array(count * 3);
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        const pts = new THREE.Points(geo, matWater);
+        scene.add(pts); 
+
+        const vels = [];
+        for(let i=0; i<count; i++) vels.push({ v: new THREE.Vector3(), active: false, delay: Math.random()*100 });
+
+        activeSprinklers.push({ head, nozzle, pts, vels, x, z });
+    }
+
+    createWirelessNode(4, 4);
+    createWirelessNode(-4, 4);
+    createWirelessNode(4, -4);
+    createWirelessNode(-4, -4);
+
+
+    // --- LOGIC SYSTEM ---
+    const uiTemp = document.getElementById('input-temp');
+    const uiHumid = document.getElementById('input-humid');
+    const valTemp = document.getElementById('val-temp');
+    const valHumid = document.getElementById('val-humid');
+    const uiCond = document.getElementById('logic-condition');
+    const uiAct = document.getElementById('logic-action');
+    const uiStatus = document.getElementById('sys-status');
+
+    function updateSystemState() {
+        temp = parseInt(uiTemp.value);
+        humidity = parseInt(uiHumid.value);
+        valTemp.innerText = temp + "°C";
+        valHumid.innerText = humidity + "%";
+
+        // LOGIC:
+        // Temp >= 9: NORMAL
+        // Temp < 9 AND Humid >= 80: FROST RISK (Warning)
+        // Temp < 9 AND Humid < 80: LOW RISK (Monitor)
+        // Temp <= 2: PREVENTIVE (Mist ON)
+        // Temp <= -4: HARD FROST (Mist ON + Critical)
+
+        if (temp <= -4) {
+            // HARD FROST
+            uiCond.innerText = "HARD FROST (≤ -4°C)";
+            uiCond.style.color = "#ef4444"; // Red
+            uiAct.innerText = "CRITICAL ALERT + MIST ON";
+            uiStatus.innerText = "HARD FROST";
+            uiStatus.className = "status-badge status-critical";
+            matLedStatus.emissive.setHex(0xef4444); // Red
+            isSprinklerActive = true;
+        } else if (temp <= 2) {
+            // PREVENTIVE
+            uiCond.innerText = "Freezing (≤ 2°C)";
+            uiCond.style.color = "#f97316"; // Orange
+            uiAct.innerText = "Preventive SMS + MIST ON";
+            uiStatus.innerText = "PREVENTIVE MODE";
+            uiStatus.className = "status-badge status-prevent";
+            matLedStatus.emissive.setHex(0xf97316); // Orange
+            isSprinklerActive = true;
+        } else if (temp < 9) {
+            if (humidity >= 80) {
+                // FROST RISK
+                uiCond.innerText = "Cold (< 9°C) + Humid (≥ 80%)";
+                uiCond.style.color = "var(--warning-color)";
+                uiAct.innerText = "Sending Early Warning SMS";
+                uiStatus.innerText = "FROST RISK";
+                uiStatus.className = "status-badge status-warning";
+                matLedStatus.emissive.setHex(0xfacc15); // Yellow
+                isSprinklerActive = false;
+            } else {
+                // LOW RISK
+                uiCond.innerText = "Cold (< 9°C) but Dry";
+                uiCond.style.color = "#3b82f6"; // Blue
+                uiAct.innerText = "Monitoring (No Alert)";
+                uiStatus.innerText = "LOW RISK";
+                uiStatus.className = "status-badge status-lowrisk";
+                matLedStatus.emissive.setHex(0x3b82f6); // Blue
+                isSprinklerActive = false;
+            }
+        } else {
+            // NORMAL
+            uiCond.innerText = "Safe Range (≥ 9°C)";
+            uiCond.style.color = "var(--success-color)";
+            uiAct.innerText = "Monitoring Environment";
+            uiStatus.innerText = "NORMAL";
+            uiStatus.className = "status-badge status-safe";
+            matLedStatus.emissive.setHex(0x10b981); // Green
+            isSprinklerActive = false;
+        }
+    }
+
+    uiTemp.addEventListener('input', updateSystemState);
+    uiHumid.addEventListener('input', updateSystemState);
+    updateSystemState(); // Init
+
+
+    // --- ANIMATION LOOP ---
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const tooltip = document.getElementById('tooltip');
+    const ttTitle = document.getElementById('tt-title');
+    const ttDesc = document.getElementById('tt-desc');
+
+    window.addEventListener('mousemove', (event) => {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        
+        // Tooltip pos
+        tooltip.style.left = (event.clientX + 15) + 'px';
+        tooltip.style.top = (event.clientY + 15) + 'px';
+    });
+
+    function animate() {
+        requestAnimationFrame(animate);
+        TWEEN.update();
+        controls.update();
+
+        // Raycasting for Tooltip
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(interactables);
+        
+        if (intersects.length > 0) {
+            const data = intersects[0].object.userData;
+            if(data && data.tooltip) {
+                ttTitle.innerText = data.tooltip;
+                ttDesc.innerText = data.desc;
+                tooltip.style.display = 'block';
+                document.body.style.cursor = 'help';
+            }
+        } else {
+            tooltip.style.display = 'none';
+            document.body.style.cursor = 'default';
+        }
+
+        // 1. Sprinkler Animation
+        activeSprinklers.forEach(s => {
+            if(isSprinklerActive) {
+                s.head.rotation.y -= 0.15; // Rotate Head
+                s.pts.visible = true;
+
+                // Physics for Particles
+                const nozzleWorldPos = new THREE.Vector3();
+                s.nozzle.getWorldPosition(nozzleWorldPos);
+                
+                const nozzleDir = new THREE.Vector3(0, 1, 0);
+                const q = new THREE.Quaternion();
+                s.nozzle.getWorldQuaternion(q);
+                nozzleDir.applyQuaternion(q).normalize();
+
+                const positions = s.pts.geometry.attributes.position.array;
+
+                for(let i=0; i<s.vels.length; i++) {
+                    const d = s.vels[i];
+                    const idx = i*3;
+
+                    // Respawn if hit ground (y < -4)
+                    if(!d.active || positions[idx+1] < -4.0) {
+                        positions[idx] = nozzleWorldPos.x;
+                        positions[idx+1] = nozzleWorldPos.y;
+                        positions[idx+2] = nozzleWorldPos.z;
+                        
+                        const spread = 0.15;
+                        d.v.copy(nozzleDir).add(new THREE.Vector3(
+                            (Math.random()-0.5)*spread, 
+                            (Math.random()-0.5)*spread, 
+                            (Math.random()-0.5)*spread
+                        )).normalize().multiplyScalar(0.1 + Math.random()*0.05);
+                        
+                        d.active = true;
+                    } else {
+                        positions[idx] += d.v.x;
+                        positions[idx+1] += d.v.y;
+                        positions[idx+2] += d.v.z;
+                        d.v.y -= 0.003; // Gravity
+                    }
+                }
+                s.pts.geometry.attributes.position.needsUpdate = true;
+            } else {
+                s.pts.visible = false;
+            }
+        });
+
+        renderer.render(scene, camera);
+    }
+    animate();
+
+    // --- VIEW CONTROLS ---
+    function updateTheme() {
+        if(isNightMode) {
+            scene.background = new THREE.Color(0x05070a);
+            scene.fog = new THREE.Fog(0x05070a, 5, 20);
+            ambientLight.intensity = 0.1;
+            dirLight.intensity = 0.1;
+            dirLight.color.setHex(0x88ccff);
+            document.getElementById('btn-night').innerText = "☀️ Day Mode";
+        } else {
+            scene.background = new THREE.Color(0xaaccff);
+            scene.fog = new THREE.Fog(0xaaccff, 10, 50);
+            ambientLight.intensity = 0.6;
+            dirLight.intensity = 1.2;
+            dirLight.color.setHex(0xfffff0);
+            document.getElementById('btn-night').innerText = "🌙 Night Mode";
+        }
+    }
+
+    document.getElementById('btn-night').addEventListener('click', () => { isNightMode = !isNightMode; updateTheme(); });
+    document.getElementById('btn-hub').addEventListener('click', () => {
+        new TWEEN.Tween(camera.position).to({x:3, y:1, z:3}, 1000).easing(TWEEN.Easing.Cubic.Out).start();
+        new TWEEN.Tween(controls.target).to({x:0, y:0, z:0}, 1000).easing(TWEEN.Easing.Cubic.Out).start();
+    });
+    document.getElementById('btn-field').addEventListener('click', () => {
+        new TWEEN.Tween(camera.position).to({x:8, y:5, z:8}, 1000).easing(TWEEN.Easing.Cubic.Out).start();
+        new TWEEN.Tween(controls.target).to({x:0, y:-2, z:0}, 1000).easing(TWEEN.Easing.Cubic.Out).start();
+    });
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+</script>
+</body>
+</html>
